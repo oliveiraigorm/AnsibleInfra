@@ -1,0 +1,13 @@
+[Unit]
+Description=ClamAV scan-on-arrival watcher (inotify)
+After=docker.service network-online.target
+Wants=docker.service
+
+[Service]
+Type=simple
+ExecStart={{ clamav_bin_dir }}/clamav-watch
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

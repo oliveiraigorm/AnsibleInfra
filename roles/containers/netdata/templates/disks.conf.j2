@@ -1,0 +1,15 @@
+# Warn/critical on disk space usage for every mounted filesystem,
+# including the external drives bind-mounted into the container.
+ template: disk_space_usage
+       on: disk.space
+    class: Utilization
+     type: System
+component: Disk
+     calc: $used * 100 / ($avail + $used)
+    units: %
+    every: 1m
+     warn: $this > (($status >= $WARNING)  ? (93) : (95))
+     crit: $this > (($status == $CRITICAL) ? (95) : (98))
+    delay: up 1m down 15m multiplier 1.5 max 1h
+     info: disk ${label:mount_point} space utilization
+       to: sysadmin

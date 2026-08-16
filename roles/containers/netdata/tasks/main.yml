@@ -15,6 +15,15 @@
     mode: 0755
     state: directory
 
+- name: Force disk-space monitoring for the external drives
+  ansible.builtin.template:
+    src: netdata.conf.j2
+    dest: "{{ docker_dir }}/{{ container_name }}/netdataconfig/netdata.conf"
+    owner: "{{ username }}"
+    group: "{{ username }}"
+    mode: 0644
+  register: netdata_conf
+
 - name: Add netdatalib directory
   ansible.builtin.file:
     path: "{{ docker_dir }}/{{ container_name }}/netdatalib"
@@ -49,8 +58,8 @@
       - "/etc/localtime:/etc/localtime:ro"
       # - "/home/igor/mnt:/mnt:ro"
       - "/home/igor/mnt/sk-1000:/mnt/sk-1000:ro"
-      # - "/home/igor/mnt/wd-1000:/mnt/wd-1000:ro"
-      # - "/home/igor/mnt/es-500:/mnt/es-500:ro"
+      - "/home/igor/mnt/wd-1000:/mnt/wd-1000:ro"
+      - "/home/igor/mnt/es-500:/mnt/es-500:ro"
     restart_policy: unless-stopped
     # ports:
     #   - "19999:19999"
@@ -63,9 +72,17 @@
       NETDATA_CLAIM_URL: https://app.netdata.cloud
       NETDATA_CLAIM_ROOMS: "{{ netdata_claim_rooms }}"
       PUSHBULLET_ACCESS_TOKEN: "{{ pushbullet_key }}"
-      PUSHBULLET_DEFAULT_EMAIL: m.igoroliveira@gmail.com
+      PUSHBULLET_DEFAULT_EMAIL: your-email@example.com
     security_opts:
       - "apparmor:unconfined"
+
+- name: Add netdata health.d directory
+  ansible.builtin.file:
+    path: "{{ docker_dir }}/{{ container_name }}/netdataconfig/health.d"
+    owner: "{{ username }}"
+    group: "{{ username }}"
+    mode: 0755
+    state: directory
 
 - name: Create health_alarm_notify.conf
   ansible.builtin.template:
@@ -74,6 +91,45 @@
     owner: "{{ username }}"
     group: "{{ username }}"
     mode: 0755
+
+- name: Create file_descriptors alarm override
+  ansible.builtin.template:
+    src: file_descriptors.conf.j2
+    dest: "{{ docker_dir }}/{{ container_name }}/netdataconfig/health.d/file_descriptors.conf"
+    owner: "{{ username }}"
+    group: "{{ username }}"
+    mode: 0644
+
+- name: Create disk_space alarm override
+  ansible.builtin.template:
+    src: disks.conf.j2
+    dest: "{{ docker_dir }}/{{ container_name }}/netdataconfig/health.d/disks.conf"
+    owner: "{{ username }}"
+    group: "{{ username }}"
+    mode: 0644
+
+- name: Add netdata go.d directory
+  ansible.builtin.file:
+    path: "{{ docker_dir }}/{{ container_name }}/netdataconfig/go.d"
+    owner: "{{ username }}"
+    group: "{{ username }}"
+    mode: 0755
+    state: directory
+
+- name: Configure HTTP availability checks for key services
+  ansible.builtin.template:
+    src: httpcheck.conf.j2
+    dest: "{{ docker_dir }}/{{ container_name }}/netdataconfig/go.d/httpcheck.conf"
+    owner: "{{ username }}"
+    group: "{{ username }}"
+    mode: 0644
+  register: netdata_httpcheck
+
+- name: Restart netdata to apply config changes
+  docker_container:
+    name: "{{ container_name }}"
+    restart: true
+  when: netdata_conf is changed or netdata_httpcheck is changed
 
 - name: Send Pushbullet test notification
   shell: |

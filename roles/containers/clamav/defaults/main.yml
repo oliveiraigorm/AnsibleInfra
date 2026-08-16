@@ -1,0 +1,83 @@
+---
+container_name: clamav
+
+# Official ClamAV image (ships clamscan + freshclam). Used on-demand via
+# `docker run --rm` — there is NO long-running container, so idle RAM/CPU is ~0.
+clamav_image: "clamav/clamav:latest"
+
+# Host state layout. The virus DB is persisted (~0.5 GB) so it isn't re-fetched.
+clamav_data_dir: "{{ docker_dir }}/{{ container_name }}"
+clamav_db_dir: "{{ clamav_data_dir }}/db"
+clamav_log_dir: "{{ clamav_data_dir }}/logs"
+clamav_quarantine_dir: "{{ clamav_data_dir }}/quarantine"
+
+# Where the helper commands land. /usr/local/bin rather than ~/bin: the play
+# runs with become, so `~` is /root — scripts installed there are unreachable
+# for the login user (and not on anyone's PATH).
+clamav_bin_dir: /usr/local/bin
+
+# Directories watched for NEW files (scan-on-arrival). inotify is passive — it
+# reads no file contents, just reacts to "file finished writing / moved in".
+clamav_watch_dirs:
+  - "/home/igor/transmission-daemon/downloads"
+  - "/home/igor/mnt/wd-1000/Filmes"
+  - "/home/igor/mnt/wd-1000/Series"
+  - "/home/igor/mnt/sk-1000/Filmes"
+  - "/home/igor/mnt/sk-1000/Series"
+  - "/home/igor/mnt/es-500/Filmes"
+  - "/home/igor/mnt/es-500/Series"
+
+# Roots bind-mounted (read-only, at the same path) into the on-demand scan
+# container so any watched file is reachable for scanning.
+clamav_scan_mounts:
+  - "/home/igor/transmission-daemon/downloads"
+  - "/home/igor/mnt/wd-1000"
+  - "/home/igor/mnt/sk-1000"
+  - "/home/igor/mnt/es-500"
+
+# Skip in-progress / temp files so partial downloads never trigger a scan.
+# Matched against the full path (extended regex). Covers hidden temp dirs
+# (e.g. .calango-tmp/) and common partial-download suffixes.
+clamav_ignore_regex: '(/\.|\.part$|\.part-Frag|\.ytdl$|\.!qB$|\.crdownload$|\.tmp$|\.partial$)'
+
+# Coalesce a burst of events (a movie + its sidecars) into one scan after this
+# many seconds of quiet.
+clamav_debounce_seconds: 8
+
+# ClamAV skips files larger than this (huge videos are passed over → scans stay
+# quick and focus on what actually carries malware).
+clamav_max_file_size: "200M"
+clamav_max_scan_size: "400M"
+
+# Infection handling. Default is non-destructive: log + alert only, files are
+# never touched. Set true to *move* (not delete) hits into the quarantine dir.
+clamav_quarantine: false
+
+# Virus-definition refresh (tiny deltas into the DB dir; never touches media).
+# Cron schedule — default daily at 04:30.
+clamav_freshclam_minute: "30"
+clamav_freshclam_hour: "4"
+clamav_freshclam_weekday: "*"        # "*" = daily; set e.g. "0" for weekly (Sun)
+
+# Optional weekly full sweep of everything (OFF by default — scan-on-arrival
+# already covers new files, and a full scan is the only thing that re-reads
+# your disks). Enable + schedule if you ever want a periodic baseline.
+clamav_full_scan_enabled: false
+clamav_full_scan_weekday: "0"
+clamav_full_scan_hour: "3"
+clamav_full_scan_minute: "0"
+
+# Raise the kernel inotify watch ceiling so recursive watches cover a large
+# library without exhausting watches.
+clamav_inotify_max_user_watches: 524288
+
+# Optional healthchecks.io-style ping URL; receives "/fail" when an infection is
+# found (and a bare ping on a clean run). Empty = no ping.
+clamav_infection_ping_url: ""
+
+# Push notification on infection / scan error, via the host's existing
+# `pushbullet <message> [title]` command (already installed at /usr/bin on the
+# thinkpad, token baked in). The push carries the host name + the infected file
+# paths. Empty = no push. Only fired on trouble — never on a clean scan, so a
+# normal download is silent.
+clamav_pushbullet_cmd: "/usr/bin/pushbullet"

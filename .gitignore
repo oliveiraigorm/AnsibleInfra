@@ -17,3 +17,7 @@ group_vars/*/vault.yml
 # Backup files
 *.bak
 *.bak.*
+
+# Python / local tooling
+.venv
+__pycache__/

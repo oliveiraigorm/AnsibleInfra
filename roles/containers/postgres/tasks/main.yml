@@ -1,0 +1,40 @@
+---
+- name: Create Postgres data directory
+  ansible.builtin.file:
+    path: "{{ postgres_data_dir }}"
+    state: directory
+    owner: "{{ username }}"
+    group: "{{ username }}"
+    mode: 0755
+
+- name: Create shared Postgres network
+  docker_network:
+    name: "{{ postgres_network }}"
+    state: present
+
+- name: Create shared Postgres container
+  docker_container:
+    name: "{{ postgres_container_name }}"
+    image: "{{ postgres_image }}"
+    pull: true
+    restart_policy: unless-stopped
+    env:
+      POSTGRES_USER: "{{ postgres_root_user }}"
+      POSTGRES_PASSWORD: "{{ postgres_root_password }}"
+    volumes:
+      - "{{ postgres_data_dir }}:/var/lib/postgresql/data"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U {{ postgres_root_user }}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - name: "{{ postgres_network }}"
+
+- name: Wait for Postgres to accept connections
+  ansible.builtin.command: "docker exec {{ postgres_container_name }} pg_isready -U {{ postgres_root_user }}"
+  register: pg_ready
+  until: pg_ready.rc == 0
+  retries: 30
+  delay: 2
+  changed_when: false

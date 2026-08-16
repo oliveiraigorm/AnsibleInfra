@@ -7,3 +7,15 @@
     minute: "00"
     hour: "12"
     state: present
+  when: restic_cron_enabled | default(false)
+
+- name: Restic Health Check Report (weekly)
+  ansible.builtin.cron:
+    name: "Restic Health Check Report"
+    user: "{{ ansible_user }}"
+    job: "{{ ansible_user_dir }}/bin/restic-health-check"
+    weekday: "{{ restic_check_weekday | default('0') }}"
+    minute: "{{ restic_check_minute | default('0') }}"
+    hour: "{{ restic_check_hour | default('6') }}"
+    state: present
+  when: restic_health_check_enabled | default(false)

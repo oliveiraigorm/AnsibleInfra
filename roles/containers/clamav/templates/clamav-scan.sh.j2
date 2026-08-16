@@ -1,0 +1,91 @@
+#!/usr/bin/env bash
+# Managed by Ansible (clamav role) — do not edit by hand.
+# On-demand ClamAV scan via a throwaway container (no resident daemon).
+# Usage: clamav-scan <path> [path...]   |   clamav-scan full
+set -uo pipefail
+
+LOGFILE="{{ clamav_log_dir }}/scan.log"
+PING_URL="{{ clamav_infection_ping_url }}"
+PB_CMD="{{ clamav_pushbullet_cmd }}"
+HOST="$(hostname)"
+{% if clamav_quarantine %}
+MOUNT_MODE="rw"
+MOVE_OPT="--move=/quarantine"
+{% else %}
+MOUNT_MODE="ro"
+MOVE_OPT=""
+{% endif %}
+
+log()  { echo "$(date '+%Y-%m-%d %H:%M:%S') $*" >> "$LOGFILE"; }
+ping() { [ -n "$PING_URL" ] && curl -fsS -m 10 --retry 2 "${PING_URL}$1" >/dev/null 2>&1 || true; }
+push() { [ -n "$PB_CMD" ] && [ -x "$PB_CMD" ] && "$PB_CMD" "$1" "$2" >/dev/null 2>&1 || true; }
+
+[ "$#" -ge 1 ] || { echo "usage: $0 <path...> | full" >&2; exit 64; }
+
+# "full" → scan every configured root.
+if [ "$1" = "full" ]; then
+  set -- {% for m in clamav_scan_mounts %}"{{ m }}" {% endfor %}
+
+else
+  # Transmission and the *arrs move/rename a finished download moments after it
+  # lands, so a queued path can already be gone by the time we run. Drop those:
+  # a file that vanished is a normal race, not something to scan or alert on.
+  TARGETS=()
+  for p in "$@"; do [ -e "$p" ] && TARGETS+=( "$p" ); done
+  if [ "{% raw %}${#TARGETS[@]}{% endraw %}" -eq 0 ]; then
+    log "skipped: all $# queued path(s) vanished before the scan started"
+    exit 0
+  fi
+  set -- "${TARGETS[@]}"
+fi
+
+MOUNTS=( -v "{{ clamav_db_dir }}:/var/lib/clamav:ro" )
+{% for m in clamav_scan_mounts %}
+MOUNTS+=( -v "{{ m }}:{{ m }}:${MOUNT_MODE}" )
+{% endfor %}
+{% if clamav_quarantine %}
+MOUNTS+=( -v "{{ clamav_quarantine_dir }}:/quarantine:rw" )
+{% endif %}
+
+log "scan start: $*"
+# --entrypoint clamscan bypasses the image's init wrapper (which otherwise
+# swallows clamscan's output and tries to chown the read-only DB mount).
+OUT="$(docker run --rm --entrypoint clamscan "${MOUNTS[@]}" {{ clamav_image }} \
+  -r --infected --no-summary --stdout $MOVE_OPT \
+  --max-filesize={{ clamav_max_file_size }} --max-scansize={{ clamav_max_scan_size }} \
+  --database=/var/lib/clamav "$@" 2>&1)"
+RC=$?
+
+printf '%s\n' "$OUT" | sed 's/^/    /' >> "$LOGFILE"
+
+# The same race can also land *between* the check above and the container
+# start, in which case clamscan exits 2 with nothing but "can't access"
+# complaints. Still benign — recognise it so it never fires a push.
+vanished_only() {
+  [ "$RC" -eq 2 ] || return 1
+  printf '%s\n' "$OUT" | grep -q ' FOUND$' && return 1
+  # Anything left after stripping the vanished-file lines is a real error.
+  printf '%s\n' "$OUT" \
+    | grep -vE "(: No such file or directory|: Can't access file)$" \
+    | grep -q '[^[:space:]]' && return 1
+  return 0
+}
+
+if vanished_only; then
+  log "skipped: file(s) vanished mid-scan (rc=2, no alert)"
+  exit 0
+fi
+
+case "$RC" in
+  0) log "clean (rc=0)"; ping "" ;;
+  1) log "!!! INFECTION FOUND (rc=1) — see lines above"; ping "/fail"
+     # Turn "/path/to/file: Some-Signature FOUND" → "file — Some-Signature".
+     HITS="$(printf '%s\n' "$OUT" | sed -n 's#^.*/\([^/]*\): \(.*\) FOUND$#\1 — \2#p')"
+     N="$(printf '%s\n' "$HITS" | grep -c .)"
+     BODY="$(printf '%s\n' "$HITS" | head -5)"
+     [ "$N" -gt 5 ] && BODY="${BODY}"$'\n'"…(+$((N - 5)) more)"
+     push "${BODY:-see scan.log}" "🦠 ClamAV: ${N} infected on ${HOST}" ;;
+  *) log "scan error (rc=$RC)"; ping "/fail"
+     push "scan error rc=$RC — see scan.log" "⚠ ClamAV error on ${HOST}" ;;
+esac
+exit "$RC"

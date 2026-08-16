@@ -1,0 +1,52 @@
+#!/bin/bash
+# Weekly restic backup health report -> Pushbullet.
+# Runs `restic check` (integrity of ALL backups in the shared repo) and reports
+# the latest snapshot date per tag, flagging any that are stale. Runs
+# independently of the daily backup job.
+set -uo pipefail
+RESTIC_PASSWD="{{ ansible_user_dir }}/.restic/.restic_passwd"
+BACKUP_REPO="{{ restic_backup_repository }}"
+STALE_DAYS={{ restic_check_stale_days | default(2) }}
+RESTIC=(/usr/local/bin/restic -p "$RESTIC_PASSWD" -r "$BACKUP_REPO")
+
+LOGFILE="/tmp/restic-health-check.log"
+exec >> "$LOGFILE" 2>&1
+echo "=== Health report started: $(date) on {{ ansible_hostname }} ==="
+
+# Clear any stale lock left by an interrupted run.
+"${RESTIC[@]}" unlock || true
+
+# 1) Integrity check across every snapshot/tag.
+CHECK_OUT="$("${RESTIC[@]}" check 2>&1)"
+if grep -q "no errors were found" <<<"$CHECK_OUT"; then
+    INTEGRITY="OK"
+else
+    INTEGRITY="FAILED"
+fi
+
+# 2) Latest snapshot per tag + freshness.
+SNAP_JSON="$("${RESTIC[@]}" snapshots --json 2>/dev/null || echo '[]')"
+TOTAL=$(jq 'length' <<<"$SNAP_JSON")
+NOW=$(date +%s)
+LINES=""
+STALE=0
+for tag in $(jq -r '.[].tags[0] // "untagged"' <<<"$SNAP_JSON" | sort -u); do
+    d=$(jq -r --arg t "$tag" '[.[] | select((.tags[0] // "untagged")==$t) | .time] | max | .[0:10]' <<<"$SNAP_JSON")
+    age=$(( (NOW - $(date -d "$d" +%s)) / 86400 ))
+    flag=""
+    if [ "$age" -gt "$STALE_DAYS" ]; then flag="[STALE] "; STALE=$((STALE+1)); fi
+    LINES="${LINES}${flag}${tag}: ${d} (${age}d)\n"
+done
+
+# 3) Compose and send the report.
+if [ "$INTEGRITY" = "OK" ] && [ "$STALE" -eq 0 ]; then
+    TITLE="OK - Backup report ({{ ansible_hostname }})"
+else
+    TITLE="WARN - Backup report ({{ ansible_hostname }})"
+fi
+BODY="Integrity: ${INTEGRITY}\nSnapshots: ${TOTAL}\nStale (>${STALE_DAYS}d): ${STALE}\n\n${LINES}"
+
+/usr/bin/pushbullet "$BODY" "$TITLE"
+echo -e "$TITLE\n$BODY"
+echo "=== Health report finished: $(date) ==="
+[ "$INTEGRITY" = "OK" ] && exit 0 || exit 1

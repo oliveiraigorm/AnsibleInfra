@@ -17,7 +17,7 @@
       - "/home/igor/mnt/sk-1000:/sk-1000"
       - "/home/igor/mnt/wd-1000:/wd-1000"
       - "/home/igor/mnt/es-500:/es-500"
-      - onedrive-ipt:/onedrive-ipt:ro
+      # - onedrive-ipt:/onedrive-ipt:ro
     restart_policy: unless-stopped
     network_mode: host
 
@@ -28,7 +28,6 @@
     image: journeyover/plex-auto-languages:main
     env:
       "PLEX_URL" : "http://{{ ansible_host }}:32400"
-      # PLEX_TOKEN is a sensitive value and should be set in your vault.yml
       "PLEX_TOKEN" : "{{ plex_token }}"
       "TZ" : "{{ timezone }}"
     network_mode: host

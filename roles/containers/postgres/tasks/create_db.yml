@@ -1,0 +1,30 @@
+---
+# Reusable task file to provision a database + owning role inside the shared postgres.
+# Expects vars: pg_user, pg_password, pg_database
+- name: "[{{ pg_database }}] Check if role {{ pg_user }} exists"
+  ansible.builtin.command: >
+    docker exec -e PGPASSWORD={{ postgres_root_password }} {{ postgres_container_name }}
+    psql -U {{ postgres_root_user }} -tAc "SELECT 1 FROM pg_roles WHERE rolname='{{ pg_user }}'"
+  register: pg_role_check
+  changed_when: false
+
+- name: "[{{ pg_database }}] Create role {{ pg_user }}"
+  ansible.builtin.command: >
+    docker exec -e PGPASSWORD={{ postgres_root_password }} {{ postgres_container_name }}
+    psql -U {{ postgres_root_user }} -c
+    "CREATE ROLE {{ pg_user }} WITH LOGIN PASSWORD '{{ pg_password }}'"
+  when: "'1' not in pg_role_check.stdout"
+
+- name: "[{{ pg_database }}] Check if database exists"
+  ansible.builtin.command: >
+    docker exec -e PGPASSWORD={{ postgres_root_password }} {{ postgres_container_name }}
+    psql -U {{ postgres_root_user }} -tAc "SELECT 1 FROM pg_database WHERE datname='{{ pg_database }}'"
+  register: pg_db_check
+  changed_when: false
+
+- name: "[{{ pg_database }}] Create database owned by {{ pg_user }}"
+  ansible.builtin.command: >
+    docker exec -e PGPASSWORD={{ postgres_root_password }} {{ postgres_container_name }}
+    psql -U {{ postgres_root_user }} -c
+    "CREATE DATABASE {{ pg_database }} OWNER {{ pg_user }}"
+  when: "'1' not in pg_db_check.stdout"

@@ -1,0 +1,29 @@
+---
+container_name: calango
+
+# Source: calango is deployed from its own git repo. The ThinkPad needs read
+# access to it (SSH deploy key on the host, or make the repo public). Override
+# calango_repo if you fork it.
+calango_repo: "git@github.com:<your-github-user>/calango.git"
+calango_version: "main"
+calango_src_dir: "{{ docker_dir }}/{{ container_name }}/src"
+calango_state_dir: "{{ docker_dir }}/{{ container_name }}/state"
+
+# Playwright image already ships Chromium (the hard part); deps are pip-installed
+# at boot. Keep the tag in sync with the playwright pin in the run command.
+calango_image: "mcr.microsoft.com/playwright/python:v1.49.1-jammy"
+calango_playwright_pin: "1.49.1"
+calango_port: 8765
+# URL subpath behind Caddy (handle_path /calango* strips it). "" = domain root.
+calango_base_path: "/calango"
+
+# Write finished files into the shared transmission downloads dir (under a
+# subfolder) so Sonarr/Radarr can import them just like torrent downloads.
+calango_downloads_host: "/home/igor/transmission-daemon/downloads"
+calango_downloads_subdir: "calango"
+
+# TMDB v4 Read Access Token. Put the real value in the vault as
+# vault_calango_tmdb_token; this picks it up.
+calango_tmdb_token: "{{ vault_calango_tmdb_token | default('') }}"
+calango_max_concurrent_downloads: 2
+calango_omdb_api_key: "{{ vault_calango_omdb_api_key | default('') }}"

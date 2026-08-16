@@ -1,9 +1,13 @@
 ---
+# When ansible runs on ally itself, manage it locally (no SSH-to-self); from
+# any other control node, fall back to SSH at ally's Tailscale IP below.
+ansible_connection: "{{ 'local' if lookup('pipe', 'hostname') == 'ally' else 'ssh' }}"
+ansible_host: 10.0.0.100
 ansible_become_password: "{{ vault_ansible_become_password }}"
 
 healthcheck_url: "https://hc-ping.com/<your-unique-uuid>"
 
-restic_backup_repository: "sftp:igor@thinkpad:{{ ansible_user_dir }}/mnt/sk-1000/restic_backups"
+restic_backup_repository: "sftp:igor@thinkpad:{{ ansible_user_dir }}/mnt/wd-1000/restic_backups"
 restic_backup_source_paths:
   wsl-backup:
     - "{{ ansible_user_dir }}/.ssh"

@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Managed by Ansible (clamav role) — do not edit by hand.
+# Pulls virus-definition deltas into the persisted DB dir (never touches media).
+# --entrypoint freshclam bypasses the image's init wrapper, and our own config
+# is mounted over the image's (see freshclam.conf.j2) so no clamd is expected.
+set -uo pipefail
+
+LOGFILE="{{ clamav_log_dir }}/freshclam.log"
+
+docker run --rm \
+  -v "{{ clamav_db_dir }}:/var/lib/clamav" \
+  -v "{{ clamav_data_dir }}/freshclam.conf:/etc/clamav/freshclam.conf:ro" \
+  --entrypoint freshclam {{ clamav_image }} \
+  --config-file=/etc/clamav/freshclam.conf --stdout >> "$LOGFILE" 2>&1

@@ -24,6 +24,26 @@ fi
 # Unlock stale locks
 /usr/local/bin/restic -p "$RESTIC_PASSWD" -r "$BACKUP_REPO" unlock || true
 
+# Pre-backup: dump configured Postgres databases via the running container.
+# Uncompressed .sql is friendlier to restic's content-defined chunking (small
+# DB diffs → tiny incremental snapshots) — restic will compress internally.
+{% if restic_backup_pg_dump_dbs is defined and restic_backup_pg_dump_dbs %}
+PG_DUMP_DIR="{{ ansible_user_dir }}/backups/db"
+mkdir -p "$PG_DUMP_DIR"
+{% for db in restic_backup_pg_dump_dbs %}
+echo "pg_dump {{ db }} → $PG_DUMP_DIR/{{ db }}.sql"
+if docker exec {{ postgres_container_name | default('postgres') }} \
+        pg_dump -U postgres -d "{{ db }}" --clean --if-exists \
+        > "$PG_DUMP_DIR/{{ db }}.sql.tmp"; then
+    mv "$PG_DUMP_DIR/{{ db }}.sql.tmp" "$PG_DUMP_DIR/{{ db }}.sql"
+else
+    echo "pg_dump {{ db }} FAILED"
+    rm -f "$PG_DUMP_DIR/{{ db }}.sql.tmp"
+    FAILURE=1
+fi
+{% endfor %}
+{% endif %}
+
 # Loop over each source path and backup individually with its key as tag
 {% for service, path in restic_backup_source_paths.items() %}
 echo "Backing up {{ service }}: {{ path }}"

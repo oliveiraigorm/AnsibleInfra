@@ -19,28 +19,29 @@
         tags:
             - cron
 
-      - role: roles/nginx
+      - role: roles/containers/caddy
         tags:
-            - nginx
+            - caddy
+            - containers
 
       - role: roles/mounts
         tags:
             - mounts
 
-      - role: roles/containers/rclone-volume
-        tags:
-            - rclone
-            - rclone-volume
-            - containers
+      # - role: roles/containers/rclone-volume
+      #   tags:
+      #       - rclone
+      #       - rclone-volume
+      #       - containers
 
       # - role: roles/rclone-service
       #   become: no
       #   tags:
       #       - rclone-service
 
-      - role: roles/containers/stirling-pdf
+      - role: roles/containers/bentopdf
         tags:
-            - stirling-pdf
+            - bentopdf
             - containers
 
       - role: roles/containers/media/immich
@@ -57,11 +58,6 @@
         tags:
             - netdata
             - containers
-
-      # - role: roles/ansible-role-duckdns
-      #   become: yes
-      #   tags:
-      #       - duckdns
 
       - role: roles/containers/transmission
         tags:
@@ -88,6 +84,11 @@
             - prowlarr
             - containers
 
+      - role: roles/containers/media/calango
+        tags:
+            - calango
+            - containers
+
       - role: roles/containers/media/tautulli
         tags:
             - tautulli
@@ -103,9 +104,24 @@
             - xteve
             - containers
 
+      - role: roles/containers/scrutiny
+        tags:
+            - scrutiny
+            - containers
+
+      - role: roles/containers/clamav
+        tags:
+            - clamav
+            - containers
+
       - role: roles/containers/homer
         tags:
             - homer
+            - containers
+
+      - role: roles/containers/postgres
+        tags:
+            - postgres
             - containers
 
 - hosts: all

@@ -21,6 +21,9 @@ duckdns_token: "{{ vault_duckdns_token }}"
 ## Transmission
 transmission_password: "{{ vault_transmission_password }}"
 
+## Caddy basic auth
+caddy_admin_password_hash: "{{ vault_caddy_admin_password_hash }}"
+
 ## Photoprism
 photoprism_admin_password: "{{ vault_photoprism_admin_password }}"
 photoprism_database_password: "{{ vault_photoprism_database_password }}"

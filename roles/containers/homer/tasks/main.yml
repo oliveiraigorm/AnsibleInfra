@@ -23,6 +23,36 @@
     group: "{{ username }}"
     mode: 0644
 
+# The /www/assets mount masks the image's default icons, so provide the favicon
+# set (fa-server style) that the page <head> links to.
+- name: Deploy Homer custom.css
+  ansible.builtin.copy:
+    src: custom.css
+    dest: "{{ docker_dir }}/{{ container_name }}/assets/custom.css"
+    owner: "{{ username }}"
+    group: "{{ username }}"
+    mode: 0644
+
+- name: Create Homer assets/icons directory
+  ansible.builtin.file:
+    path: "{{ docker_dir }}/{{ container_name }}/assets/icons"
+    state: directory
+    owner: "{{ username }}"
+    group: "{{ username }}"
+    mode: 0755
+
+- name: Deploy Homer favicons
+  ansible.builtin.copy:
+    src: "icons/{{ item }}"
+    dest: "{{ docker_dir }}/{{ container_name }}/assets/icons/{{ item }}"
+    owner: "{{ username }}"
+    group: "{{ username }}"
+    mode: 0644
+  loop:
+    - favicon.ico
+    - apple-touch-icon.png
+    - logo.svg
+
 - name: Create Homer container
   docker_container:
     name: "{{ container_name }}"
