@@ -1,0 +1,135 @@
+---
+- name: Install inotify-tools (for the watcher)
+  ansible.builtin.apt:
+    name: inotify-tools
+    state: present
+  become: true
+
+- name: Raise the kernel inotify watch limit (recursive watches over a big library)
+  ansible.posix.sysctl:
+    name: fs.inotify.max_user_watches
+    value: "{{ clamav_inotify_max_user_watches }}"
+    sysctl_set: true
+    state: present
+    reload: true
+  become: true
+
+- name: Create clamav state directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ username }}"
+    group: "{{ username }}"
+    mode: "0755"
+  loop:
+    - "{{ clamav_data_dir }}"
+    - "{{ clamav_db_dir }}"
+    - "{{ clamav_log_dir }}"
+    - "{{ clamav_quarantine_dir }}"
+
+- name: Make the log files writable by both root's cron and the login user
+  ansible.builtin.file:
+    path: "{{ clamav_log_dir }}/{{ item }}"
+    state: touch
+    owner: "{{ username }}"
+    group: "{{ username }}"
+    mode: "0664"
+    modification_time: preserve
+    access_time: preserve
+  loop:
+    - scan.log
+    - freshclam.log
+  become: true
+
+- name: Drop the old ~/bin copies of the scripts (they now live in {{ clamav_bin_dir }})
+  ansible.builtin.file:
+    path: "{{ ansible_user_dir }}/bin/{{ item }}"
+    state: absent
+  loop:
+    - clamav-scan
+    - clamav-watch
+  become: true
+
+- name: Install the on-demand scan script
+  ansible.builtin.template:
+    src: clamav-scan.sh.j2
+    dest: "{{ clamav_bin_dir }}/clamav-scan"
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+
+- name: Install the inotify watcher script
+  ansible.builtin.template:
+    src: clamav-watch.sh.j2
+    dest: "{{ clamav_bin_dir }}/clamav-watch"
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+  notify: Restart clamav watcher
+
+- name: Install the freshclam config (no NotifyClamd — this deploy runs no clamd)
+  ansible.builtin.template:
+    src: freshclam.conf.j2
+    dest: "{{ clamav_data_dir }}/freshclam.conf"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+
+- name: Install the virus-definition refresh script
+  ansible.builtin.template:
+    src: clamav-freshclam.sh.j2
+    dest: "{{ clamav_bin_dir }}/clamav-freshclam"
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+
+- name: Pull / refresh the virus database now (so the first scan isn't cold)
+  ansible.builtin.command:
+    cmd: "{{ clamav_bin_dir }}/clamav-freshclam"
+  become: true
+  changed_when: false
+
+- name: Daily virus-definition refresh
+  ansible.builtin.cron:
+    name: "ClamAV freshclam"
+    user: root
+    job: "{{ clamav_bin_dir }}/clamav-freshclam"
+    minute: "{{ clamav_freshclam_minute }}"
+    hour: "{{ clamav_freshclam_hour }}"
+    weekday: "{{ clamav_freshclam_weekday }}"
+    state: present
+  become: true
+
+- name: Optional weekly full scan (off by default)
+  ansible.builtin.cron:
+    name: "ClamAV weekly full scan"
+    user: root
+    job: "{{ clamav_bin_dir }}/clamav-scan full"
+    weekday: "{{ clamav_full_scan_weekday }}"
+    hour: "{{ clamav_full_scan_hour }}"
+    minute: "{{ clamav_full_scan_minute }}"
+    state: "{{ 'present' if clamav_full_scan_enabled else 'absent' }}"
+  become: true
+
+- name: Install the watcher systemd unit
+  ansible.builtin.template:
+    src: clamav-watch.service.j2
+    dest: /etc/systemd/system/clamav-watch.service
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: Restart clamav watcher
+
+- name: Enable + start the clamav watcher
+  ansible.builtin.systemd:
+    name: clamav-watch.service
+    enabled: true
+    state: started
+    daemon_reload: true
+  become: true
+  when: not ansible_check_mode   # unit file isn't really written in --check → skip

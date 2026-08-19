@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+# Managed by Ansible (clamav role) — do not edit by hand.
+# Watches the media/download dirs and scans NEW, completed files on arrival.
+# inotify is passive (kernel events, no polling) — it reads no file contents;
+# only the on-demand scan of a finished file does any reading.
+set -uo pipefail
+
+SCAN="{{ clamav_bin_dir }}/clamav-scan"
+IGNORE_RE='{{ clamav_ignore_regex }}'
+DEBOUNCE='{{ clamav_debounce_seconds }}'
+LOGFILE="{{ clamav_log_dir }}/scan.log"
+
+WATCH=( {% for d in clamav_watch_dirs %}"{{ d }}" {% endfor %})
+
+# Only watch dirs that currently exist (a drive could be unmounted).
+EXIST=()
+for d in "${WATCH[@]}"; do [ -d "$d" ] && EXIST+=( "$d" ); done
+[ "{% raw %}${#EXIST[@]}{% endraw %}" -gt 0 ] || { echo "clamav-watch: no watch dirs present" >&2; exit 0; }
+echo "$(date '+%Y-%m-%d %H:%M:%S') watcher started: ${EXIST[*]}" >> "$LOGFILE"
+
+declare -A PENDING
+flush() {
+  # `set -u` treats an *empty* associative array as unset (taking its length
+  # then aborts the whole read loop), so pull the keys via the `+` alternate
+  # expansion — safe when PENDING has none — and count those instead.
+  local files=( {% raw %}"${PENDING[@]+"${!PENDING[@]}"}"{% endraw %} )
+  [ "{% raw %}${#files[@]}{% endraw %}" -gt 0 ] || return 0
+  PENDING=()
+  # Transmission and the *arrs routinely move a finished download away during
+  # the debounce window, so re-check right before scanning and pass on only
+  # what is still there. Without this, clamscan exits 2 on the missing path and
+  # the scan script pushes a bogus "ClamAV error" alert.
+  local live=() f
+  for f in "${files[@]}"; do [ -e "$f" ] && live+=( "$f" ); done
+  [ "{% raw %}${#live[@]}{% endraw %}" -gt 0 ] || return 0
+  "$SCAN" "${live[@]}" || true
+}
+
+# close_write + moved_to == "a file finished being written / was moved into place".
+# The stderr filter drops one specific line: inotifywait complains "Couldn't
+# watch new directory …: No such file or directory" when a freshly created
+# directory is renamed away before the recursive watch is added — the same
+# benign move race. Every other inotify error (watch limits, …) still surfaces.
+inotifywait -m -r -q -e close_write -e moved_to --format '%w%f' "${EXIST[@]}" \
+  2> >(grep --line-buffered -v "^Couldn't watch new directory .*: No such file or directory$" >&2) |
+while true; do
+  ret=0
+  IFS= read -r -t "$DEBOUNCE" path || ret=$?
+  if [ "$ret" -eq 0 ]; then
+    # Skip in-progress/temp files and anything that isn't a regular file.
+    [[ "$path" =~ $IGNORE_RE ]] && continue
+    [ -f "$path" ] || continue
+    PENDING["$path"]=1
+  elif [ "$ret" -gt 128 ]; then
+    flush                       # read timed out → quiet period → scan the batch
+  else
+    flush; break                # EOF/error (inotifywait died) → exit; systemd restarts
+  fi
+done

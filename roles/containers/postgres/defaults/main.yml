@@ -1,0 +1,6 @@
+---
+postgres_container_name: postgres
+postgres_image: postgres:16
+postgres_network: db_network
+postgres_data_dir: "{{ docker_dir }}/postgres/data"
+postgres_root_user: postgres

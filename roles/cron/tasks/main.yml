@@ -8,16 +8,17 @@
     hour: "5"
     state: present
 
-- name: "Backup from SK-1000 to WD-1000"
+# wd-1000 is the primary drive; replicate it out to sk-1000 and es-500.
+- name: "Backup from WD-1000 to SK-1000"
   ansible.builtin.cron:
-    name: "Backup from SK-1000 to WD-1000"
+    name: "Backup from WD-1000 to SK-1000"
     user: "{{  ansible_user  }}"
     minute: "00"
-    hour: "06"
+    hour: "07"
     job: >
-      mountpoint /home/igor/mnt/wd-1000 &&
+      mountpoint /home/igor/mnt/sk-1000 &&
       curl https://hc-ping.com/<hidden-id>/start &&
-      rsync -a /home/igor/mnt/sk-1000/Backup /home/igor/mnt/wd-1000/ &&
+      rsync -a /home/igor/mnt/wd-1000/Backup /home/igor/mnt/wd-1000/restic_backups /home/igor/mnt/sk-1000/ &&
       curl https://hc-ping.com/<hidden-id> ||
       curl https://hc-ping.com/<hidden-id>/fail
     state: present
@@ -28,7 +29,7 @@
 #     user: "{{  ansible_user  }}"
 #     minute: "00"
 #     hour: "05"
-#     job: 'rclone copy --max-age 240h --no-traverse /home/igor/mnt/sk-1000/Backup onedrive-ipt:/Backup && curl https://hc-ping.com/11286b8a-0384-4e66-88e7-49ef0b11a6c9'
+#     job: 'rclone copy --max-age 240h --no-traverse /home/igor/mnt/sk-1000/Backup onedrive-ipt:/Backup && curl https://hc-ping.com/<hidden-id>'
 #     state: present
 
 - name: "Backup from WD-1000 to ES-500"
@@ -36,13 +37,21 @@
     name: "Backup from WD-1000 to ES-500"
     user: "{{  ansible_user  }}"
     minute: "00"
-    hour: "07"
+    hour: "06"
     job: >
       mountpoint /home/igor/mnt/es-500 &&
       curl https://hc-ping.com/<hidden-id>/start &&
-      rsync -a /home/igor/mnt/sk-1000/Backup /home/igor/mnt/es-500/ &&
+      rsync -a /home/igor/mnt/wd-1000/Backup /home/igor/mnt/wd-1000/restic_backups /home/igor/mnt/es-500/ &&
       curl https://hc-ping.com/<hidden-id> ||
       curl https://hc-ping.com/<hidden-id>/fail
+    state: present
+
+- name: "DuckDNS Update"
+  ansible.builtin.cron:
+    name: "DuckDNS Update"
+    user: "{{ ansible_user }}"
+    minute: "*/5"
+    job: 'IPV6=$(curl -s6 https://ifconfig.co) && curl -s "https://www.duckdns.org/update?domains=yourdomain&token={{ duckdns_token }}&ip=&ipv6=$IPV6" > /dev/null'
     state: present
 
 - name: "Up check"

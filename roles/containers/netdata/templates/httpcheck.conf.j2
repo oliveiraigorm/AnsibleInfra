@@ -1,0 +1,17 @@
+# {{ ansible_managed }}
+# go.d httpcheck jobs — HTTP availability monitoring for key services.
+# Netdata's stock httpcheck alarms fire on bad status / no connection / timeout
+# and notify via the configured pushbullet channel.
+# Availability checks don't need to be frequent — every 15 minutes is plenty.
+update_every: 900
+
+jobs:
+{% for c in netdata_http_checks %}
+  - name: {{ c.name }}
+    url: {{ c.url }}
+    timeout: {{ c.timeout | default(5) }}
+    # check the immediate response, not where a redirect lands (several apps
+    # redirect to a login/400 when healthy)
+    not_follow_redirects: yes
+    status_accepted: {{ c.status_accepted | default([200]) }}
+{% endfor %}

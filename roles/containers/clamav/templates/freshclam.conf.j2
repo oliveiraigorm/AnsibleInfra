@@ -1,0 +1,16 @@
+# Managed by Ansible (clamav role) — do not edit by hand.
+# Deliberately omits NotifyClamd (which the image's stock config sets): this
+# deployment runs no clamd daemon, so every refresh warned "Clamd was NOT
+# notified: Can't connect to clamd through /tmp/clamd.sock".
+# UpdateLogFile is omitted too — output goes to stdout, which the wrapper
+# script appends to {{ clamav_log_dir }}/freshclam.log.
+#
+# DatabaseOwner root (not the image default `clamav`, UID 100): Ansible owns
+# the DB dir as {{ username }}, so a freshclam that drops to UID 100 cannot
+# write its temp dir and fails with rc=10. The image's init wrapper used to
+# paper over this by chown-ing the mount on every run; we bypass that wrapper,
+# so state ownership stays stable instead. The container is throwaway and only
+# has the DB dir mounted rw.
+DatabaseOwner root
+DatabaseMirror database.clamav.net
+ScriptedUpdates yes

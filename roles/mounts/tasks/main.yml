@@ -68,7 +68,7 @@
 - name: Get disks
   shell: ls /dev | grep sd | grep -v [0-9]$ | grep -v a
   register: disks
-
+  
 - name: Disk idle
   ansible.builtin.command: sudo hdparm -B 64 /dev/{{ item }}
-  loop: "{{ disks.stdout_lines }}"
+  loop: "{{ disks.stdout_lines }}"  

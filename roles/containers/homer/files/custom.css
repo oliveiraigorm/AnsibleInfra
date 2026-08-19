@@ -1,0 +1,33 @@
+/* Masonry layout for service groups.
+ *
+ * Homer lays groups out with Bulma's `.columns.is-multiline` grid using
+ * fixed-width `.column.is-4` cells. Because cards don't stretch, groups of
+ * unequal height leave "staircase" whitespace and wrap onto sparse new rows.
+ *
+ * Switching the wrapper to a CSS multi-column flow lets groups pack upward
+ * into the shortest column, filling the gaps and keeping the board compact. */
+.columns.is-multiline.layout-vertical {
+  display: block;
+  margin: 0;
+  column-gap: 1rem;
+  column-count: 3;
+}
+
+.columns.is-multiline.layout-vertical > .column.is-4 {
+  display: inline-block;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  vertical-align: top;
+  break-inside: avoid;
+  -webkit-column-break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+/* Follow Bulma's responsive breakpoints for column count. */
+@media screen and (max-width: 768px) {
+  .columns.is-multiline.layout-vertical { column-count: 1; }
+}
+
+@media screen and (min-width: 769px) and (max-width: 1215px) {
+  .columns.is-multiline.layout-vertical { column-count: 2; }
+}

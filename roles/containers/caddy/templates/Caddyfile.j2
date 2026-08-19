@@ -1,0 +1,141 @@
+yourdomain.duckdns.org:80, 192.168.1.100:80 {
+	redir https://{host}{uri} permanent
+}
+
+yourdomain.duckdns.org {
+	handle /radarr* {
+		reverse_proxy localhost:7878
+	}
+
+	handle /sonarr* {
+		reverse_proxy localhost:8989
+	}
+
+	handle /prowlarr* {
+		reverse_proxy localhost:9696
+	}
+
+	handle /tautulli* {
+		reverse_proxy localhost:8181
+	}
+
+	handle /jackett* {
+		reverse_proxy localhost:9117
+	}
+
+	handle /transmission* {
+		basic_auth {
+			admin {{ caddy_admin_password_hash }}
+		}
+		reverse_proxy localhost:9091
+	}
+
+	handle /scrutiny* {
+		basic_auth {
+			admin {{ caddy_admin_password_hash }}
+		}
+		reverse_proxy localhost:8082
+	}
+
+	handle_path /calango* {
+		basic_auth {
+			admin {{ caddy_admin_password_hash }}
+		}
+		reverse_proxy localhost:8765
+	}
+
+	handle {
+		reverse_proxy localhost:8095
+	}
+}
+
+https://192.168.1.100 {
+	tls internal
+
+	handle /radarr* {
+		reverse_proxy localhost:7878
+	}
+
+	handle /sonarr* {
+		reverse_proxy localhost:8989
+	}
+
+	handle /prowlarr* {
+		reverse_proxy localhost:9696
+	}
+
+	handle /tautulli* {
+		reverse_proxy localhost:8181
+	}
+
+	handle /jackett* {
+		reverse_proxy localhost:9117
+	}
+
+	handle /transmission* {
+		basic_auth {
+			admin {{ caddy_admin_password_hash }}
+		}
+		reverse_proxy localhost:9091
+	}
+
+	handle /scrutiny* {
+		basic_auth {
+			admin {{ caddy_admin_password_hash }}
+		}
+		reverse_proxy localhost:8082
+	}
+
+	handle_path /calango* {
+		basic_auth {
+			admin {{ caddy_admin_password_hash }}
+		}
+		reverse_proxy localhost:8765
+	}
+
+	handle {
+		reverse_proxy localhost:8095
+	}
+}
+
+photos.yourdomain.duckdns.org {
+	reverse_proxy localhost:2283 {
+		transport http {
+			read_timeout 600s
+			write_timeout 600s
+		}
+	}
+
+	request_body {
+		max_size 50000MB
+	}
+}
+
+plex.yourdomain.duckdns.org {
+	reverse_proxy localhost:32400
+}
+
+unifi.yourdomain.duckdns.org {
+	reverse_proxy https://localhost:8443 {
+		transport http {
+			tls_insecure_skip_verify
+		}
+	}
+}
+
+monitoring.yourdomain.duckdns.org {
+	reverse_proxy localhost:19999
+}
+
+pdf.yourdomain.duckdns.org {
+	reverse_proxy localhost:8090 {
+		transport http {
+			read_timeout 300s
+		}
+	}
+
+	request_body {
+		max_size 100MB
+	}
+}
+

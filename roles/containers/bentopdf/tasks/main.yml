@@ -1,0 +1,22 @@
+---
+- name: Add bentopdf directory
+  ansible.builtin.file:
+    path: "{{ docker_dir }}/{{ container_name }}"
+    owner: "{{ username }}"
+    group: "{{ username }}"
+    mode: 0755
+    state: directory
+
+- name: Make sure the {{ container_name }} container is created and running
+  docker_container:
+    name: "{{ container_name }}"
+    image: ghcr.io/alam00000/bentopdf-simple:latest
+    pull: yes
+    state: 'started'
+    ports:
+      - "{{ bentopdf_port }}:8080"
+    restart_policy: unless-stopped
+    env:
+      DISABLE_IPV6: "false"
+    memory: "512m"
+    cpus: 1.0

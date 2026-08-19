@@ -1,0 +1,81 @@
+---
+- name: Create calango directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ username }}"
+    group: "{{ username }}"
+    mode: "0755"
+  loop:
+    - "{{ docker_dir }}/{{ container_name }}"
+    - "{{ calango_state_dir }}"
+
+- name: Ensure the shared downloads subfolder exists (world-writable for *arr import)
+  ansible.builtin.file:
+    path: "{{ calango_downloads_host }}/{{ calango_downloads_subdir }}"
+    state: directory
+    owner: "{{ username }}"
+    group: "{{ username }}"
+    mode: "0777"
+
+- name: Clone / update the calango source
+  ansible.builtin.git:
+    repo: "{{ calango_repo }}"
+    dest: "{{ calango_src_dir }}"
+    version: "{{ calango_version }}"
+    accept_hostkey: true
+    update: true
+    force: true
+  become: true
+  become_user: "{{ username }}"
+  notify: Restart calango
+
+- name: Warn if no TMDB token is configured
+  ansible.builtin.debug:
+    msg: >-
+      No calango_tmdb_token set (vault_calango_tmdb_token). calango will
+      start but search won't work until you add it on its Settings page.
+  when: calango_tmdb_token | length == 0
+
+- name: Make sure the {{ container_name }} container is created and running
+  docker_container:
+    name: "{{ container_name }}"
+    image: "{{ calango_image }}"
+    pull: yes
+    working_dir: /app
+    networks:
+      - name: docker_default
+    ports:
+      - "{{ calango_port }}:{{ calango_port }}"
+    state: 'started'
+    restart_policy: unless-stopped
+    env:
+      TZ: "{{ timezone }}"
+      TMDB_TOKEN: "{{ calango_tmdb_token }}"
+      DOWNLOAD_DIR: "/downloads/{{ calango_downloads_subdir }}"
+      STATE_DIR: /app/.state
+      HOST: 0.0.0.0
+      PORT: "{{ calango_port | string }}"
+      BASE_PATH: "{{ calango_base_path }}"
+      HEADLESS: "1"
+      MAX_CONCURRENT_DOWNLOADS: "{{ calango_max_concurrent_downloads | string }}"
+      OMDB_API_KEY: "{{ calango_omdb_api_key }}"
+      PIP_CACHE_DIR: /pip-cache
+    command:
+      - bash
+      - -lc
+      - >-
+        pip install --quiet -r requirements.txt 'playwright=={{ calango_playwright_pin }}'
+        && uvicorn app.main:app --host 0.0.0.0 --port {{ calango_port }}
+    volumes:
+      - "/etc/localtime:/etc/localtime:ro"
+      - "{{ calango_src_dir }}:/app"
+      - "{{ calango_state_dir }}:/app/.state"
+      - "{{ calango_downloads_host }}:/downloads"
+      - "calango_pip_cache:/pip-cache"
+      - "/home/igor/mnt/sk-1000/Filmes:/sk-1000/Filmes"
+      - "/home/igor/mnt/wd-1000/Filmes:/wd-1000/Filmes"
+      - "/home/igor/mnt/es-500/Filmes:/es-500/Filmes"
+      - "/home/igor/mnt/sk-1000/Series:/sk-1000/Series"
+      - "/home/igor/mnt/wd-1000/Series:/wd-1000/Series"
+      - "/home/igor/mnt/es-500/Series:/es-500/Series"

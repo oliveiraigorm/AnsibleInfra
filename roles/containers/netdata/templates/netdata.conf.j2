@@ -1,0 +1,10 @@
+# In "auto" mode Netdata only charts the root filesystem and skips
+# secondary/removable mounts, so the external NTFS drives never get a
+# disk.space chart (and therefore never trigger the disk_space_usage
+# alarm). Forcing "space usage = yes" per mountpoint creates the charts.
+{% for mount in netdata_monitored_mounts %}
+[plugin:proc:diskspace:{{ mount }}]
+    space usage = yes
+    inodes usage = yes
+
+{% endfor %}

@@ -13,7 +13,7 @@
 
 - name: Create Immich upload subdirectories
   ansible.builtin.file:
-    path: "/home/igor/mnt/sk-1000/Backup/Fotos_immich/{{ item }}"
+    path: "/home/igor/mnt/wd-1000/Backup/Fotos_immich/{{ item }}"
     state: directory
     owner: "{{ username }}"
     group: "{{ username }}"
@@ -29,7 +29,7 @@
 - name: Create Immich marker files for integrity checks
   ansible.builtin.copy:
     content: ""
-    dest: "/home/igor/mnt/sk-1000/Backup/Fotos_immich/{{ item }}/.immich"
+    dest: "/home/igor/mnt/wd-1000/Backup/Fotos_immich/{{ item }}/.immich"
     owner: "{{ username }}"
     group: "{{ username }}"
     mode: 0644
@@ -51,6 +51,7 @@
   docker_container:
     name: immich_redis
     image: docker.io/valkey/valkey:9
+    state: started
     restart_policy: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "redis-cli ping || exit 1"]
@@ -61,6 +62,7 @@
   docker_container:
     name: immich_postgres
     image: ghcr.io/immich-app/postgres:14-vectorchord0.5.3
+    state: started
     restart_policy: unless-stopped
     env:
       POSTGRES_PASSWORD: "{{ immich_db_password }}"
@@ -81,6 +83,7 @@
   docker_container:
     name: immich_machine_learning
     image: ghcr.io/immich-app/immich-machine-learning:{{ immich_version }}
+    state: started
     restart_policy: unless-stopped
     pull: true
     volumes:
@@ -102,6 +105,7 @@
   docker_container:
     name: immich_server
     image: ghcr.io/immich-app/immich-server:{{ immich_version }}
+    state: started
     restart_policy: unless-stopped
     pull: true
     ports:
@@ -118,6 +122,6 @@
       IMMICH_CONFIG_FILE: /config/immich.json
     volumes:
       - "{{ docker_dir }}/{{ container_name }}/immich.json:/config/immich.json:ro"
-      - "/home/igor/mnt/sk-1000/Backup/Fotos_immich:/usr/src/app/upload:rw"
+      - "/home/igor/mnt/wd-1000/Backup/Fotos_immich:/usr/src/app/upload:rw"
       - "/etc/localtime:/etc/localtime:ro"
-      # - "/home/igor/mnt/sk-1000/Backup/Fotos:/mnt/photos:ro"
+      # - "/home/igor/mnt/wd-1000/Backup/Fotos:/mnt/photos:ro"

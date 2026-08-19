@@ -1,0 +1,6 @@
+---
+- name: Restart calango
+  docker_container:
+    name: "{{ container_name }}"
+    state: 'started'
+    restart: yes

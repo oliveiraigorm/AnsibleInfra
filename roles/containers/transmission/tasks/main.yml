@@ -2,7 +2,7 @@
 - name: Add transmission directory
   file:
     state: directory
-    path: "{{ docker_dir }}/transmission"
+    path: "{{ docker_dir }}/transmission" 
     owner: "igor"
     group: "igor"
     mode: 0755
@@ -11,7 +11,7 @@
   become: yes
   file:
     state: directory
-    path: "/home/igor/transmission-daemon/downloads"
+    path: "/home/igor/transmission-daemon/downloads" 
     owner: "igor"
     group: "igor"
     mode: 0777

@@ -4,7 +4,11 @@ netdata_claim_token: "{{ vault_netdata_claim_token }}"
 netdata_claim_rooms: "{{ vault_netdata_claim_rooms }}"
 healthcheck_url: "https://hc-ping.com/<your-unique-uuid>"
 immich_db_password: "{{ vault_immich_db_password }}"
-restic_backup_repository: "{{  ansible_user_dir  }}/mnt/sk-1000/restic_backups"
+postgres_root_password: "{{ vault_postgres_root_password }}"
+restic_backup_repository: "{{  ansible_user_dir  }}/mnt/wd-1000/restic_backups"
+restic_health_check_enabled: true
+# Databases dumped (via the shared postgres container) before each restic run.
+restic_backup_pg_dump_dbs: []
 restic_backup_source_paths:
   sonarr:
     - "{{ docker_dir }}/sonarr/Backups"
@@ -18,3 +22,5 @@ restic_backup_source_paths:
     - "{{ ansible_user_dir }}/.local/share/atuin"
   openclaw:
     - "{{ ansible_user_dir }}/.openclaw"
+  postgres:
+    - "{{ ansible_user_dir }}/backups/db"

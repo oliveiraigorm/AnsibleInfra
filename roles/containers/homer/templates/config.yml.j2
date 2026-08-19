@@ -4,25 +4,61 @@
 
 title: "Thinkpad Dashboard"
 subtitle: "Infrastructure & Media"
-logo: "logo.png"
+icon: "fas fa-server"
 
 header: true
-footer: '<p>Created with <span class="has-text-danger">❤️</span> by Igor</p>'
+footer: '<p>Created with <span class="has-text-danger">❤️</span></p>'
 
 theme: default
 
+stylesheet:
+  - "assets/custom.css"
+
+# ThinkPad TrackPoint red instead of Homer's default blue.
+colors:
+  light:
+    highlight-primary: "#e1261d"
+    highlight-secondary: "#b71c15"
+    highlight-hover: "#c01810"
+    background: "#f5f5f5"
+    card-background: "#ffffff"
+    text: "#363636"
+    text-header: "#ffffff"
+    text-title: "#303030"
+    text-subtitle: "#424242"
+    card-shadow: rgba(0, 0, 0, 0.1)
+    link: "#e1261d"
+    link-hover: "#b71c15"
+  dark:
+    highlight-primary: "#e1261d"
+    highlight-secondary: "#8e1610"
+    highlight-hover: "#c01810"
+    background: "#131313"
+    card-background: "#2b2b2b"
+    text: "#eaeaea"
+    text-header: "#ffffff"
+    text-title: "#fafafa"
+    text-subtitle: "#f5f5f5"
+    card-shadow: rgba(0, 0, 0, 0.4)
+    link: "#ff6b61"
+    link-hover: "#ffffff"
+
 services:
-  - name: "Media Management"
-    icon: "fas fa-video"
+  - name: "Media"
+    icon: "fas fa-play"
     items:
       - name: "Plex"
         icon: "fas fa-play-circle"
         subtitle: "Media Server"
-        url: "https://app.plex.tv"
+        url: "https://plex.yourdomain.duckdns.org"
       - name: "Tautulli"
         icon: "fas fa-chart-bar"
         subtitle: "Plex Monitoring"
         url: "/tautulli"
+
+  - name: "Media Automation"
+    icon: "fas fa-robot"
+    items:
       - name: "Sonarr"
         icon: "fas fa-tv"
         subtitle: "TV Series"
@@ -37,29 +73,45 @@ services:
         url: "/prowlarr"
       - name: "Jackett"
         icon: "fas fa-archive"
-        subtitle: "API Support"
+        subtitle: "Torznab Proxy"
         url: "/jackett"
+
+  - name: "Downloads"
+    icon: "fas fa-download"
+    items:
       - name: "Transmission"
         icon: "fas fa-download"
         subtitle: "BitTorrent Client"
         url: "/transmission"
+      - name: "Calango"
+        icon: "fas fa-clapperboard"
+        subtitle: "Stream Downloader"
+        url: "/calango"
 
-  - name: "Tools & Utilities"
-    icon: "fas fa-tools"
+  - name: "Apps & Files"
+    icon: "fas fa-th"
     items:
       - name: "Immich"
         icon: "fas fa-images"
         subtitle: "Photos"
-        url: "/immich/"
-      - name: "Stirling PDF"
+        url: "https://photos.yourdomain.duckdns.org"
+      - name: "Bento PDF"
         icon: "fas fa-file-pdf"
         subtitle: "PDF Tools"
-        url: "/stirling-pdf/"
+        url: "https://pdf.yourdomain.duckdns.org"
+
+  - name: "System & Network"
+    icon: "fas fa-server"
+    items:
       - name: "Netdata"
         icon: "fas fa-heartbeat"
         subtitle: "System Monitoring"
-        url: "http://192.168.10.120:19999"
+        url: "https://monitoring.yourdomain.duckdns.org"
+      - name: "Scrutiny"
+        icon: "fas fa-hdd"
+        subtitle: "Disk Health Monitoring"
+        url: "/scrutiny"
       - name: "UniFi"
         icon: "fas fa-network-wired"
         subtitle: "Network Controller"
-        url: "https://unifi.ui.com"
+        url: "https://unifi.yourdomain.duckdns.org"

@@ -1,0 +1,8 @@
+---
+- name: Restart clamav watcher
+  ansible.builtin.systemd:
+    name: clamav-watch.service
+    state: restarted
+    daemon_reload: true
+  become: true
+  when: not ansible_check_mode   # unit file isn't really written in --check → skip

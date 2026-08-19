@@ -1,0 +1,43 @@
+---
+- name: Create Scrutiny config directory
+  file:
+    path: "{{ docker_dir }}/{{ container_name }}/config"
+    state: directory
+
+- name: Copy Scrutiny configuration
+  template:
+    src: scrutiny.yaml.j2
+    dest: "{{ docker_dir }}/{{ container_name }}/config/scrutiny.yaml"
+  register: scrutiny_config
+
+- name: Make sure the {{ container_name }} container is created and running
+  docker_container:
+    name: "{{ container_name }}"
+    image: ghcr.io/analogj/scrutiny:master-omnibus
+    pull: yes
+    state: started
+    restart_policy: unless-stopped
+    recreate: yes
+    capabilities:
+      - SYS_RAWIO
+    env:
+      TZ: "{{ timezone }}"
+      # Web UI is served under /scrutiny (see scrutiny.yaml basepath). The
+      # bundled collector must hit the same prefix or its API calls fall
+      # through to the SPA fallback and fail with "invalid character '<'".
+      COLLECTOR_API_ENDPOINT: "http://localhost:8080/scrutiny"
+    ports:
+      - "8082:8080"
+    volumes:
+      - /run/udev:/run/udev:ro
+      # Mount the host device tree and allow all block devices via cgroup rules
+      # instead of pinning /dev/sdX names. Letters get reshuffled on reboot,
+      # which left the container referencing a device that no longer existed and
+      # stopped it from starting; this way smartctl --scan finds the disks
+      # dynamically each boot.
+      - /dev:/dev
+      - "{{ docker_dir }}/{{ container_name }}/config:/opt/scrutiny/config"
+      - "{{ docker_dir }}/{{ container_name }}/influxdb:/opt/scrutiny/influxdb"
+    device_cgroup_rules:
+      - 'b 8:* rmw'    # SCSI/SATA/USB disks (sd*)
+      - 'b 259:* rmw'  # NVMe disks (nvme*), if any are added later

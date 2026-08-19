@@ -1,2 +1,37 @@
 ---
 container_name: netdata
+
+# External drives bind-mounted into the container that Netdata should chart
+# for disk-space usage (it skips secondary mounts in "auto" mode otherwise).
+netdata_monitored_mounts:
+  - /mnt/sk-1000
+  - /mnt/wd-1000
+  - /mnt/es-500
+
+# HTTP endpoints Netdata checks for availability. Alerts fire (to the #netdata
+# pushbullet channel) when a service is unreachable or returns an unexpected
+# status — catching both a stopped container and one that's up but broken
+# (e.g. the scrutiny 502). status_accepted lists the codes a healthy service
+# returns (several apps redirect when healthy, hence the non-200 entries).
+netdata_http_checks:
+  - name: scrutiny
+    url: http://localhost:8082/scrutiny/api/health
+    status_accepted: [200]
+  - name: plex
+    url: http://localhost:32400/identity
+    status_accepted: [200]
+  - name: radarr
+    url: http://localhost:7878/ping
+    status_accepted: [200, 307]
+  - name: sonarr
+    url: http://localhost:8989/ping
+    status_accepted: [200, 307]
+  - name: prowlarr
+    url: http://localhost:9696/ping
+    status_accepted: [200, 307]
+  - name: jackett
+    url: http://localhost:9117/UI/Dashboard
+    status_accepted: [200, 301, 302]
+  - name: tautulli
+    url: http://localhost:8181/status
+    status_accepted: [200, 302, 303]
